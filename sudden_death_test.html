@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>猝死风险测试</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Helvetica,Arial,sans-serif;background:#f7f8fa;color:#1a1a2e;min-height:100vh;overflow-x:hidden}
+  
+  .cover{text-align:center;padding:80px 28px 40px;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center}
+  .cover-icon{font-size:72px;margin-bottom:28px}
+  .cover h1{font-size:28px;font-weight:800;color:#1a1a2e;margin-bottom:12px}
+  .cover .subtitle{font-size:15px;color:#888;line-height:1.8;margin-bottom:36px}
+  .cover .stats{display:flex;gap:24px;justify-content:center;margin-bottom:44px}
+  .cover .stat{text-align:center;background:#fff;border-radius:16px;padding:16px 20px;min-width:80px;box-shadow:0 2px 12px rgba(0,0,0,0.04)}
+  .cover .stat-num{font-size:24px;font-weight:800;color:#4a7cff}
+  .cover .stat-label{font-size:11px;color:#aaa;margin-top:4px}
+  .btn-start{width:100%;max-width:320px;padding:16px 32px;background:#4a7cff;color:#fff;border:none;border-radius:50px;font-size:17px;font-weight:700;cursor:pointer;transition:all .3s;box-shadow:0 6px 24px rgba(74,124,255,0.25)}
+  .btn-start:active{transform:scale(0.96)}
+  .cover-note{font-size:12px;color:#bbb;margin-top:16px}
+  
+  .password-screen{position:fixed;inset:0;background:#f7f8fa;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+  .password-screen.hidden{display:none}
+  .pwd-icon{font-size:56px;margin-bottom:20px}
+  .pwd-title{font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:8px}
+  .pwd-sub{font-size:14px;color:#999;margin-bottom:28px;text-align:center}
+  .pwd-input-wrap{position:relative;width:100%;max-width:280px;margin-bottom:12px}
+  .pwd-input{width:100%;padding:14px 20px;background:#fff;border:1.5px solid #e8e8e8;border-radius:14px;color:#1a1a2e;font-size:16px;text-align:center;letter-spacing:6px;outline:none;transition:border-color .3s}
+  .pwd-input:focus{border-color:#4a7cff}
+  .pwd-error{font-size:13px;color:#ff6b6b;margin-bottom:12px;min-height:20px;text-align:center}
+  .btn-pwd{width:100%;max-width:280px;padding:14px;background:#4a7cff;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;transition:all .3s}
+  .btn-pwd:active{transform:scale(0.97)}
+  
+  .quiz-wrap{position:fixed;inset:0;background:#f7f8fa;z-index:100;display:none;flex-direction:column}
+  .quiz-wrap.active{display:flex}
+  .quiz-header{position:sticky;top:0;background:rgba(247,248,250,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);z-index:10;padding:16px 20px;border-bottom:1px solid #eee}
+  .quiz-progress{display:flex;align-items:center;gap:12px}
+  .quiz-progress-bar{flex:1;height:4px;background:#eee;border-radius:4px;overflow:hidden}
+  .quiz-progress-fill{height:100%;background:#4a7cff;border-radius:4px;transition:width .5s cubic-bezier(.4,0,.2,1);width:0%}
+  .quiz-progress-text{font-size:12px;color:#bbb;white-space:nowrap;min-width:40px;text-align:right}
+  
+  .quiz-body{flex:1;overflow-y:auto;padding:32px 24px 120px;-webkit-overflow-scrolling:touch}
+  .question-num{font-size:12px;color:#4a7cff;font-weight:600;letter-spacing:2px;margin-bottom:16px}
+  .question-text{font-size:21px;font-weight:700;line-height:1.6;margin-bottom:28px;color:#1a1a2e}
+  .options{list-style:none;display:flex;flex-direction:column;gap:10px}
+  .option{background:#fff;border:1.5px solid #eee;border-radius:14px;padding:15px 18px;font-size:15px;line-height:1.5;cursor:pointer;transition:all .25s;color:#444;position:relative}
+  .option:hover{border-color:#c5d5ff;background:#f0f4ff}
+  .option.selected{background:#eef2ff;border-color:#4a7cff;color:#1a1a2e;font-weight:500}
+  
+  .quiz-footer{position:fixed;bottom:0;left:0;right:0;padding:16px 24px 32px;background:linear-gradient(transparent,#f7f8fa 40%);z-index:10}
+  .btn-next{width:100%;padding:16px;background:#e8e8e8;color:#bbb;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:not-allowed;transition:all .3s}
+  .btn-next.ready{background:#4a7cff;color:#fff;cursor:pointer;box-shadow:0 6px 20px rgba(74,124,255,0.25)}
+  .btn-next.ready:active{transform:scale(0.98)}
+  
+  .result-wrap{position:fixed;inset:0;background:#f7f8fa;z-index:150;display:none;flex-direction:column;overflow-y:auto}
+  .result-wrap.active{display:flex}
+  .result-top{text-align:center;padding:48px 24px 28px}
+  .result-label{font-size:13px;color:#999;letter-spacing:2px;margin-bottom:16px}
+  .result-score{font-size:32px;font-weight:800;margin-bottom:8px;line-height:1.3}
+  .result-desc{font-size:15px;color:#666;line-height:1.7;margin-top:12px;max-width:320px;margin-left:auto;margin-right:auto}
+  
+  .result-body{padding:0 24px 100px}
+  .result-section{margin-top:28px}
+  .result-section-title{font-size:14px;font-weight:700;color:#1a1a2e;letter-spacing:1px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #eee}
+  .risk-factor{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #f0f0f0}
+  .risk-factor:last-child{border-bottom:none}
+  .risk-dot{width:6px;height:6px;border-radius:50%;background:#4a7cff;flex-shrink:0;margin-top:7px}
+  .risk-factor p{font-size:14px;line-height:1.6;color:#555}
+  
+  .advice-card{background:#fff;border-radius:16px;padding:18px;margin-bottom:12px;box-shadow:0 1px 6px rgba(0,0,0,0.03)}
+  .advice-card h4{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .advice-card p{font-size:14px;color:#666;line-height:1.7}
+  
+  /* 维度分析 */
+  .dim-grid{display:flex;flex-direction:column;gap:10px}
+  .dim-item{background:#fff;border-radius:14px;padding:16px;box-shadow:0 1px 6px rgba(0,0,0,0.03)}
+  .dim-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .dim-name{font-size:14px;font-weight:700;color:#1a1a2e}
+  .dim-level{font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px}
+  .dim-level.low{background:#e8f5e9;color:#34c759}
+  .dim-level.mid{background:#fff8e1;color:#f5a623}
+  .dim-level.high{background:#fff3e0;color:#ff9500}
+  .dim-level.danger{background:#ffebee;color:#ff3b30}
+  .dim-bar{height:6px;background:#f0f0f0;border-radius:6px;overflow:hidden;margin-bottom:8px}
+  .dim-bar-fill{height:100%;border-radius:6px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+  .dim-desc{font-size:13px;color:#888;line-height:1.6}
+  
+  /* 日常行动清单 */
+  .checklist{display:flex;flex-direction:column;gap:8px}
+  .check-item{display:flex;align-items:flex-start;gap:10px;background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,0.02)}
+  .check-box{width:22px;height:22px;border:2px solid #ddd;border-radius:6px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-top:1px}
+  .check-box.checked{background:#4a7cff;border-color:#4a7cff}
+  .check-box.checked::after{content:"\2713";color:#fff;font-size:13px;font-weight:700}
+  .check-label{font-size:14px;color:#444;line-height:1.5}
+  .check-label.done{text-decoration:line-through;color:#bbb}
+  
+  /* 长期建议 */
+  .timeline{position:relative;padding-left:24px}
+  .timeline::before{content:"";position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:#e8e8e8;border-radius:2px}
+  .timeline-item{position:relative;margin-bottom:20px}
+  .timeline-item::before{content:"";position:absolute;left:-20px;top:6px;width:12px;height:12px;border-radius:50%;background:#fff;border:2.5px solid #4a7cff;z-index:1}
+  .timeline-item.done::before{background:#4a7cff}
+  .timeline-title{font-size:14px;font-weight:700;color:#1a1a2e;margin-bottom:4px}
+  .timeline-text{font-size:13px;color:#888;line-height:1.6}
+  .timeline-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:#eef2ff;color:#4a7cff;font-weight:600;margin-top:6px}
+  
+  .disclaimer{font-size:12px;color:#bbb;text-align:center;line-height:1.6;padding:24px 16px;border-top:1px solid #eee;margin-top:24px}
+  
+  .result-footer{position:fixed;bottom:0;left:0;right:0;padding:16px 24px 40px;background:linear-gradient(transparent,#f7f8fa 40%);z-index:10}
+  .btn-reply{width:100%;padding:16px;background:#4a7cff;color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(74,124,255,0.25);display:block;text-align:center;text-decoration:none}
+  .btn-reply:active{transform:scale(0.98)}
+</style>
+</head>
+<body>
+
+<div class="password-screen" id="passwordScreen">
+  <div class="pwd-icon">🔓</div>
+  <div class="pwd-title">猝死风险诊断报告</div>
+  <div class="pwd-sub">完整版需解锁，请输入密码</div>
+  <div class="pwd-input-wrap">
+    <input type="password" class="pwd-input" id="pwdInput" placeholder="输入密码" maxlength="20" autocomplete="off">
+  </div>
+  <div class="pwd-error" id="pwdError"></div>
+  <button class="btn-pwd" onclick="checkPwd()">解锁报告</button>
+</div>
+
+<div class="cover" id="cover">
+  <div class="cover-icon">🫀</div>
+  <h1>猝死风险测试</h1>
+  <p class="subtitle">15道题，3分钟<br>了解你的心脏正在经历什么</p>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num">54万</div>
+      <div class="stat-label">年心脏骤停</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">1%</div>
+      <div class="stat-label">抢救成功率</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">45岁</div>
+      <div class="stat-label">高发年龄</div>
+    </div>
+  </div>
+  <button class="btn-start" onclick="startQuiz()">开始测试 →</button>
+  <p class="cover-note">测试约3分钟 · 仅供参考</p>
+</div>
+
+<div class="quiz-wrap" id="quizWrap">
+  <div class="quiz-header">
+    <div class="quiz-progress">
+      <div class="quiz-progress-bar">
+        <div class="quiz-progress-fill" id="progressFill"></div>
+      </div>
+      <div class="quiz-progress-text" id="progressText">1/15</div>
+    </div>
+  </div>
+  <div class="quiz-body">
+    <div class="question-num" id="qNum"></div>
+    <div class="question-text" id="qText"></div>
+    <ul class="options" id="options"></ul>
+  </div>
+  <div class="quiz-footer">
+    <button class="btn-next" id="btnNext" onclick="nextQuestion()">下一题</button>
+  </div>
+</div>
+
+<div class="result-wrap" id="resultWrap">
+  <div class="result-top">
+    <div class="result-label">你的猝死风险等级</div>
+    <div class="result-score" id="resultScore"></div>
+    <div class="result-desc" id="resultDesc"></div>
+  </div>
+  <div class="result-body">
+    <!-- 维度分析 -->
+    <div class="result-section">
+      <div class="result-section-title">📊 五维风险分析</div>
+      <div class="dim-grid" id="dimGrid"></div>
+    </div>
+    <!-- 高危因素 -->
+    <div class="result-section">
+      <div class="result-section-title">⚠️ 需要关注</div>
+      <div id="riskFactors"></div>
+    </div>
+    <!-- 改善建议 -->
+    <div class="result-section">
+      <div class="result-section-title">💡 改善建议</div>
+      <div id="advice"></div>
+    </div>
+    <!-- 今日行动清单 -->
+    <div class="result-section">
+      <div class="result-section-title">✅ 今日行动清单</div>
+      <div class="checklist" id="checklist"></div>
+    </div>
+    <!-- 长期改善计划 -->
+    <div class="result-section">
+      <div class="result-section-title">📅 长期改善计划</div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+    <div class="disclaimer">
+      本测试仅供娱乐参考，不能替代专业医学诊断。<br>
+      如有身体不适，请及时就医。
+    </div>
+  </div>
+  <div class="result-footer">
+    <a class="btn-reply" href="#" onclick="restart();return false;">← 再测一次</a>
+  </div>
+</div>
+
+<script>
+var currentQ=0,score=0,answered=false,quizStarted=false;
+var scores={sleep:0,exercise:0,body:0,symptom:0,diet:0,smoke:0,family:0,emotion:0,metabolism:0,screen:0,binge:0,conflict:0,checkup:0,digest:0,fear:0};
+
+var questions=[
+  {num:"Q1",text:"你通常几点睡觉？",dim:"sleep",options:[{label:"晚上10点前，早睡早起",score:0},{label:"晚上11点到12点之间",score:1},{label:"凌晨1点到2点",score:2},{label:"凌晨2点以后，或者不规律",score:3}]},
+  {num:"Q2",text:"你每周运动几次？",dim:"exercise",options:[{label:"每周3次以上，每次30分钟以上",score:0},{label:"每周1-2次",score:1},{label:"偶尔散步或日常走路为主",score:2},{label:"几乎不运动，能躺着绝不坐着",score:3}]},
+  {num:"Q3",text:"你目前的体重状态？",dim:"body",options:[{label:"BMI正常，腹部没有明显赘肉",score:0},{label:"稍微有点超重，但不明显",score:1},{label:"明显肥胖，尤其是腹部",score:2},{label:"严重肥胖，或者短期体重快速变化",score:3}]},
+  {num:"Q4",text:"你最近是否有以下症状？",dim:"symptom",options:[{label:"没有明显不适，身体状态良好",score:0},{label:"偶尔胸闷、心悸，但很快缓解",score:1},{label:"经常头晕、头痛、耳鸣",score:2},{label:"有胸痛、呼吸困难、或突然眼前发黑",score:3}]},
+  {num:"Q5",text:"你的饮食习惯更接近哪种？",dim:"diet",options:[{label:"规律饮食，少油少盐，多蔬菜水果",score:0},{label:"偶尔外卖奶茶，重口味但不频繁",score:1},{label:"经常外卖/外食，高油高盐",score:2},{label:"几乎每天外卖，加工食品为主，渴了喝奶茶可乐",score:3}]},
+  {num:"Q6",text:"你抽烟或经常暴露在二手烟环境吗？",dim:"smoke",options:[{label:"不抽烟，也很少接触二手烟",score:0},{label:"偶尔喝酒，但不抽烟",score:1},{label:"每天几支烟，或经常泡在烟味里",score:2},{label:"大量吸烟，或者经常醉酒",score:3}]},
+  {num:"Q7",text:"你家族中是否有心脏病/高血压/猝死病史？",dim:"family",options:[{label:"没有，家族成员普遍健康",score:0},{label:"有高血压或糖尿病，但没有猝死",score:1},{label:"有心脏相关疾病家族史",score:2},{label:"有直系亲属在60岁前因心脏病去世",score:3}]},
+  {num:"Q8",text:"你目前的压力和情绪状态？",dim:"emotion",options:[{label:"压力可控，情绪稳定，睡眠质量好",score:0},{label:"偶尔焦虑，但能调节，情绪波动不大",score:1},{label:"长期高压，情绪起伏大，睡眠浅易醒",score:2},{label:"长期压抑/抑郁/易怒，已经影响正常生活",score:3}]},
+  {num:"Q9",text:"你是否有高血压/高血脂/高血糖/高尿酸？",dim:"metabolism",options:[{label:"体检各项指标均正常",score:0},{label:"有一项轻微异常，暂未服药",score:1},{label:"有一项或多项明显异常，在服药控制",score:2},{label:"多项指标异常，且控制不佳",score:3}]},
+  {num:"Q10",text:"你每天盯着屏幕的时间？",dim:"screen",options:[{label:"每天少于6小时，注意休息",score:0},{label:"每天6-10小时，偶尔休息",score:1},{label:"每天10-14小时，几乎不离开屏幕",score:2},{label:"每天超过14小时，熬夜刷手机是常态",score:3}]},
+  {num:"Q11",text:"最近半年内，你有过连续熬夜3天以上的经历吗？",dim:"binge",options:[{label:"几乎没有，规律作息",score:0},{label:"偶尔项目赶工期，有过一两次",score:1},{label:"经常熬夜赶东西，每月都有",score:2},{label:"熬夜是常态，或者经常通宵",score:3}]},
+  {num:"Q12",text:"你是否会经常与人发生剧烈情绪冲突？",dim:"conflict",options:[{label:"很少争执，情绪稳定",score:0},{label:"偶尔生气，但能较快平复",score:1},{label:"容易激动，跟人吵架是常事",score:2},{label:"长期压抑愤怒，或者有极端情绪爆发",score:3}]},
+  {num:"Q13",text:"你是否有定期体检的习惯？",dim:"checkup",options:[{label:"每年体检一次，指标都在关注",score:0},{label:"偶尔体检，或者公司有安排",score:1},{label:"好几年没体检了",score:2},{label:"从未主动体检过，身体小问题都硬扛",score:3}]},
+  {num:"Q14",text:"你上厕所的时间规律吗？",dim:"digest",options:[{label:"每天规律排便，没有便秘",score:0},{label:"偶尔便秘或腹泻，影响不大",score:1},{label:"长期便秘或腹泻交替",score:2},{label:"排便极不规律，伴有血便或粘液便",score:3}]},
+  {num:"Q15",text:"如果现在去做一个全面心脏检查，你的感觉是？",dim:"fear",options:[{label:"很坦然，不担心结果",score:0},{label:"有点紧张，但觉得应该没什么问题",score:1},{label:"心里没底，但一直拖着没去",score:2},{label:"很害怕，不敢去检查",score:3}]}
+];
+
+// 五个维度映射
+var dims={
+ 作息节律:{keys:["sleep","binge"],desc:"睡眠规律性、熬夜频率对心脏节律的影响"},
+ 身体状况:{keys:["body","symptom","metabolism"],desc:"体重、症状和代谢指标对心血管的直接影响"},
+ 生活方式:{keys:["exercise","diet","smoke","screen"],desc:"运动、饮食、烟酒和久坐对血管健康的累积损伤"},
+ 情绪压力:{keys:["emotion","conflict"],desc:"长期高压和情绪波动对交感神经的持续刺激"},
+ 健康意识:{keys:["family","checkup","digest","fear"],desc:"家族风险、体检习惯和健康关注度的综合评估"}
+};
+
+function getDimScore(dimKeys){
+  var s=0;
+  dimKeys.forEach(function(k){s+=(scores[k]||0)});
+  return s;
+}
+function getDimMax(dimKeys){return dimKeys.length*3}
+function dimLevel(s,m){
+  var p=s/m;
+  if(p<=0.33)return{label:"良好",cls:"low",color:"#34c759"};
+  if(p<=0.55)return{label:"一般",cls:"mid",color:"#f5a623"};
+  if(p<=0.75)return{label:"偏高",cls:"high",color:"#ff9500"};
+  return{label:"危险",cls:"danger",color:"#ff3b30"};
+}
+
+var levels=[
+  {min:0,max:12,level:"\u{1F7E2} 低风险",color:"#34c759",desc:"你的生活习惯相对健康，身体状态良好。继续保持，注意定期体检就好。",factors:["作息相对规律，睡眠质量尚可","饮食习惯较好，没有明显健康隐患","家族史和个人史都比较干净"],advice:[{icon:"\u{1F6CC}",title:"保持规律作息",text:"每晚尽量在11点前入睡，保证7-8小时睡眠。"},{icon:"\u{1F3C3}",title:"坚持适度运动",text:"每周3次以上有氧运动，每次30分钟以上，保护心血管。"},{icon:"\u{1F489}",title:"定期体检",text:"建议每年做一次包含心电图和血脂的基础体检。"}],checklist:["今晚11点前放下手机","明天出门走15分钟","记录一下这周的睡眠时间"],timeline:[{t:"本周",title:"建立睡眠记录",text:"用手机记录每晚入睡和起床时间，持续一周了解自己的作息规律。"},{t:"2周内",title:"安排一次体检",text:"预约基础体检套餐，重点关注心电图、血脂和血压。"},{t:"1个月内",title:"建立运动习惯",text:"从每周2次散步30分钟开始，逐步增加到每周3次。"},{t:"3个月内",title:"优化饮食结构",text:"将外卖频率降低50%，每周至少3天自己做饭。"}]},
+  {min:13,max:22,level:"\u{1F7E1} 中低风险",color:"#f5a623",desc:"你的身体开始积累一些隐患，但还不算严重。如果不注意，风险会逐步上升。",factors:["作息偏晚，睡眠不足或质量一般","运动量不足，久坐时间较长","饮食习惯有待改善，外卖频率偏高"],advice:[{icon:"\u{1F6CC}",title:"提前睡眠时间",text:"试着每天提前15分钟入睡，逐步调整到11点前。"},{icon:"\u{1F6B6}",title:"增加日常活动",text:"每坐1小时站起来活动5分钟，上下班多走路。"},{icon:"\u{1F34E}",title:"优化饮食结构",text:"减少外卖次数，增加蔬菜水果和优质蛋白摄入。"}],checklist:["设一个晚上10:30的闹钟提醒准备睡觉","明天带一瓶水上班，替代奶茶","中午出去走走，别一直在工位坐着"],timeline:[{t:"本周",title:"调整入睡时间",text:"每晚比平时提前15分钟上床，连续7天逐步提前到11点。"},{t:"2周内",title:"开始微量运动",text:"每天午休后散步15分钟，或下班后快走20分钟。"},{t:"1个月内",title:"外卖减半计划",text:"将外卖从每天1次降到每周3次，其余时间自己准备简餐。"},{t:"3个月内",title:"建立体检基线",text:"做一次全面体检，记录所有指标作为未来对比的基线。"}]},
+  {min:23,max:32,level:"\u{1F7E0} 中高风险",color:"#ff9500",desc:"你的身体已经在发出警告信号。继续现在的状态，风险会显著上升，需要认真对待了。",factors:["长期熬夜，作息紊乱，影响心脏节律","运动严重不足，身体机能下降","可能存在代谢异常（血压/血脂/血糖）","情绪压力长期积累，对心血管造成慢性损伤"],advice:[{icon:"\u23F0",title:"严格作息时间",text:"设定固定睡眠时间，睡前1小时不看手机，减少熬夜。"},{icon:"\u{1F3E5}",title:"做一次心脏检查",text:"建议做心电图、心脏彩超和血脂检查，了解基础状态。"},{icon:"\u{1F3CB}",title:"开始运动计划",text:"从每天散步30分钟开始，逐步建立运动习惯。"},{icon:"\u{1F9D8}",title:"学会压力释放",text:"尝试冥想、深呼吸等减压方式，减少情绪对心脏的伤害。"}],checklist:["今晚12点前必须关灯睡觉","下载一个冥想APP，试一次5分钟呼吸","这周预约一个体检，别再拖了","把工位上的零食换成坚果和水果"],timeline:[{t:"本周",title:"强制早睡实验",text:"连续7天在12点前关灯，记录每天的感受变化。"},{t:"2周内",title:"全面心脏检查",text:"预约心电图+心脏彩超+血脂四项+血压监测，不要只做基础套餐。"},{t:"1个月内",title:"建立运动规律",text:"每周至少3次30分钟有氧运动（快走/慢跑/游泳），不找借口。"},{t:"3个月内",title:"压力管理系统",text:"每天10分钟冥想或深呼吸练习，学习识别自己的压力信号。"},{t:"半年内",title:"复查看变化",text:"3个月后复查关键指标，用数据验证改善效果。"}]},
+  {min:33,max:45,level:"\u{1F534} 高风险",color:"#ff3b30",desc:"你的身体已经处于危险边缘。多项风险因素叠加，心脏负担极重。建议立即行动，不要等到出问题才后悔。",factors:["长期熬夜和作息紊乱，严重破坏心脏节律","缺乏运动 + 不良饮食，血管状态堪忧","情绪压力长期居高不下，交感神经持续兴奋","可能存在未被发现的血压、血脂或心脏问题"],advice:[{icon:"\u{1F6A8}",title:"立即安排体检",text:"本周内做全面心脏检查：心电图、心脏彩超、血脂、血糖。"},{icon:"\u23F0",title:"必须早睡",text:"从今天起，晚上12点前必须睡觉，保证7小时睡眠。"},{icon:"\u{1F37D}",title:"调整饮食结构",text:"彻底减少外卖和加工食品，增加蔬菜、鱼类和全谷物。"},{icon:"\u{1FA7A}",title:"症状不容忽视",text:"如出现胸痛、呼吸困难、心悸等症状，立刻就医，不要拖延。"}],checklist:["今天就去预约体检，最迟这周做完","今晚12点前必须睡觉，设3个闹钟提醒","把手机上的短视频APP设定时锁","告诉一个信任的人你的健康状况，让他监督你"],timeline:[{t:"今天",title:"预约全面心脏检查",text:"不要等，今天就打电话预约。做心电图+心脏彩超+冠脉CT+血脂+血糖+血压24小时监测。"},{t:"本周",title:"强制作息 + 戒断外卖",text:"连续7天12点前睡觉，外卖降到每周1次，自己准备简餐。"},{t:"2周内",title:"拿到体检结果并咨询医生",text:"带着体检报告去看心内科，不要自己猜，听医生的专业判断。"},{t:"1个月内",title:"建立最低运动量",text:"从每天散步20分钟开始，心率微微升高即可，不要一开始就剧烈运动。"},{t:"3个月内",title:"全面生活方式调整",text:"固定作息+规律运动+健康饮食+情绪管理，四个维度同时推进。"},{t:"半年内",title:"复查对比 + 长期跟踪",text:"半年后复查所有异常指标，建立长期健康档案，每年至少体检1次。"}]}
+];
+
+function checkPwd(){
+  var pwd=document.getElementById("pwdInput").value;
+  if(pwd==="6768"){document.getElementById("passwordScreen").classList.add("hidden");quizStarted=true}
+  else{document.getElementById("pwdError").textContent="密码错误，请重新输入";document.getElementById("pwdInput").value="";document.getElementById("pwdInput").focus()}
+}
+document.getElementById("pwdInput").addEventListener("keyup",function(e){if(e.key==="Enter")checkPwd()});
+
+function startQuiz(){
+  if(!quizStarted){document.getElementById("passwordScreen").classList.remove("hidden");return}
+  document.getElementById("cover").style.display="none";
+  document.getElementById("quizWrap").classList.add("active");
+  renderQuestion();
+}
+
+function renderQuestion(){
+  var q=questions[currentQ];
+  document.getElementById("qNum").textContent=q.num;
+  document.getElementById("qText").textContent=q.text;
+  document.getElementById("progressText").textContent=(currentQ+1)+"/"+questions.length;
+  document.getElementById("progressFill").style.width=((currentQ+1)/questions.length*100)+"%";
+  var h="";
+  q.options.forEach(function(opt,idx){h+="<li class=\"option\" onclick=\"selectOption(this,"+opt.score+",'"+q.dim+"')\"><span>"+opt.label+"</span></li>"});
+  document.getElementById("options").innerHTML=h;
+  answered=false;
+  document.getElementById("btnNext").classList.remove("ready");
+  document.getElementById("btnNext").textContent=currentQ===questions.length-1?"查看结果":"下一题";
+}
+
+function selectOption(el,sc,dim){
+  if(answered)return;
+  answered=true;
+  score+=sc;
+  scores[dim]=sc;
+  document.querySelectorAll(".option").forEach(function(o){o.classList.remove("selected")});
+  el.classList.add("selected");
+  document.getElementById("btnNext").classList.add("ready");
+}
+
+function nextQuestion(){
+  if(!answered)return;
+  if(currentQ<questions.length-1){currentQ++;renderQuestion()}
+  else{showResult()}
+}
+
+function showResult(){
+  document.getElementById("quizWrap").classList.remove("active");
+  document.getElementById("resultWrap").classList.add("active");
+  
+  var level=levels[levels.length-1];
+  for(var i=0;i<levels.length;i++){if(score>=levels[i].min&&score<=levels[i].max){level=levels[i];break}}
+  if(score>45)level=levels[levels.length-1];
+  
+  var rs=document.getElementById("resultScore");
+  rs.textContent=level.level;
+  rs.style.color=level.color;
+  document.getElementById("resultDesc").textContent=level.desc;
+  
+  // 五维分析
+  var dgHtml="";
+  var dimNames=["作息节律","身体状况","生活方式","情绪压力","健康意识"];
+  var dimIcons=["\u{1F6CC}","\u{1F4AA}","\u{1F37D}","\u{1F9D8}","\u{1FA7A}"];
+  dimNames.forEach(function(name,idx){
+    var d=dims[name];
+    var s=getDimScore(d.keys),m=getDimMax(d.keys);
+    var lv=dimLevel(s,m);
+    var pct=Math.round(s/m*100);
+    dgHtml+="<div class=\"dim-item\">"+
+      "<div class=\"dim-header\"><span class=\"dim-name\">"+dimIcons[idx]+" "+name+"</span><span class=\"dim-level "+lv.cls+"\">"+lv.label+"</span></div>"+
+      "<div class=\"dim-bar\"><div class=\"dim-bar-fill\" style=\"width:"+pct+"%;background:"+lv.color+"\"></div></div>"+
+      "<div class=\"dim-desc\">"+d.desc+"</div>"+
+      "</div>";
+  });
+  document.getElementById("dimGrid").innerHTML=dgHtml;
+  
+  // 高危因素
+  var fh="";
+  level.factors.forEach(function(f){fh+="<div class=\"risk-factor\"><div class=\"risk-dot\" style=\"background:"+level.color+"\"></div><p>"+f+"</p></div>"});
+  document.getElementById("riskFactors").innerHTML=fh;
+  
+  // 改善建议
+  var ah="";
+  level.advice.forEach(function(a){ah+="<div class=\"advice-card\"><h4>"+a.icon+" "+a.title+"</h4><p>"+a.text+"</p></div>"});
+  document.getElementById("advice").innerHTML=ah;
+  
+  // 今日行动清单
+  var clHtml="";
+  level.checklist.forEach(function(item,idx){
+    clHtml+="<div class=\"check-item\"><div class=\"check-box\" id=\"chk"+idx+"\" onclick=\"toggleCheck(this,"+idx+")\"></div><span class=\"check-label\" id=\"lbl"+idx+"\">"+item+"</span></div>";
+  });
+  document.getElementById("checklist").innerHTML=clHtml;
+  
+  // 长期计划
+  var tlHtml="";
+  level.timeline.forEach(function(item){
+    tlHtml+="<div class=\"timeline-item\"><div class=\"timeline-title\">"+item.title+"</div><div class=\"timeline-text\">"+item.text+"</div><span class=\"timeline-tag\">"+item.t+"</span></div>";
+  });
+  document.getElementById("timeline").innerHTML=tlHtml;
+}
+
+function toggleCheck(el,idx){
+  el.classList.toggle("checked");
+  var lbl=document.getElementById("lbl"+idx);
+  lbl.classList.toggle("done");
+}
+
+function restart(){
+  currentQ=0;score=0;answered=false;
+  scores={sleep:0,exercise:0,body:0,symptom:0,diet:0,smoke:0,family:0,emotion:0,metabolism:0,screen:0,binge:0,conflict:0,checkup:0,digest:0,fear:0};
+  document.getElementById("resultWrap").classList.remove("active");
+  document.getElementById("cover").style.display="flex";
+  quizStarted=true;
+}
+</script>
+</body>
+</html>
